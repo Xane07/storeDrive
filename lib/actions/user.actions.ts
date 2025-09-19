@@ -25,24 +25,10 @@ const handleError = (error: unknown, message: String) => {
 };
 
 export const sendEmailOTP = async ({ email }: { email: string }) => {
-  const { account, users } = await createAdminClient();
+  const { account } = await createAdminClient();
 
   try {
-    // Ensure the Appwrite user exists for this email
-    let appwriteUserId: string | null = null;
-    try {
-      const list = await users.list([Query.equal("email", [email])]);
-      if (list.total > 0) {
-        appwriteUserId = list.users[0].$id;
-      }
-    } catch {}
-
-    if (!appwriteUserId) {
-      appwriteUserId = ID.unique();
-      await users.create(appwriteUserId, email);
-    }
-
-    const token = await account.createEmailToken(appwriteUserId, email);
+    const token = await account.createEmailToken(ID.unique(), email);
     return token.userId;
   } catch (error) {
     handleError(error, "failed to send email OTP");
