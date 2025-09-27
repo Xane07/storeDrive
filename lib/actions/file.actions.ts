@@ -43,6 +43,7 @@ export const uploadFile = async ({
       name: bucketFile.name,
       url: constructFileUrl(bucketFile.$id),
       extension: getFileType(bucketFile.name).extension,
+      size: bucketFile.sizeOriginal,
       owner: ownerId,
       accountId: resolvedAccountId,
       users: [],
@@ -77,7 +78,7 @@ const createQueries = (currentUser: Models.Document) => {
 };
 
 export const getFiles = async () => {
-  const { databases } = await createAdminClient();
+  const { databases, storage } = await createAdminClient();
   try {
     const currentUser = await getCurrentUser();
     if (!currentUser || !currentUser.user) {
@@ -89,7 +90,25 @@ export const getFiles = async () => {
       appwriteConfig.filesCollectionId,
       queries,
     );
-    return files;
+    // Backfill size for documents that don't have it by reading from storage
+    const documentsWithSize = await Promise.all(
+      files.documents.map(async (doc: Models.Document) => {
+        if ((doc as any).size === undefined || (doc as any).size === null) {
+          try {
+            const bucketFile = await storage.getFile(
+              appwriteConfig.bucketId,
+              (doc as any).bucketFileId
+            );
+            return parseStringify({ ...doc, size: bucketFile.sizeOriginal });
+          } catch (err) {
+            console.warn("Failed to fetch file metadata for size", doc.$id, err);
+            return doc;
+          }
+        }
+        return doc;
+      })
+    );
+    return { ...files, documents: documentsWithSize } as any;
   } catch (error) {
     console.error("Failed to get files:", error);
     return { documents: [], total: 0 };
