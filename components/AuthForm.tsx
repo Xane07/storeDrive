@@ -157,6 +157,9 @@ const AuthForm = ({ type }: { type: FormType }) => {
             </Link>
           </div>
         </form>
+
+
+
       </Form>
       {/* { OTP VERIFICATION} */}
       {accountId && (
